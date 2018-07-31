@@ -38,7 +38,7 @@ describe('Connect', () => {
     it('sets config vals if given config object', () => {
       const transport = sinon.stub()
       const mobileTransport = sinon.stub()
-      const config ={
+      const config = {
         network: 'mainnet',
         // provider: new HttpProvider(this.network.rpcUrl),
         accountType: 'keypair',
@@ -82,19 +82,19 @@ describe('Connect', () => {
     })
 
     it('initializes with address/did from local storage if available', () => {
-      // TODO
       // Set some storage
       const uportSetStorage = new Connect('test app')
       const address = "0x60fa1309b60125e97f2e8fd2ec576be1932ee51a"
-      const did = "did:ethr:0x60fa1309b60125e97f2e8fd2ec576be1932ee51a"
+      const did = `did:ethr:${address}`
       // TODO update and test other vals
-      uportSetStorage.mnid = did
-      uportSetStorage.setState()
+      uportSetStorage.address = address
+      uportSetStorage.did = did
+
       // Test if re-initialized with storage
       const uport = new Connect('testApp')
-      expect(uport.mnid).to.equal(did)
+      expect(uport.address).to.equal(address)
+      expect(uport.did).to.equal(did)
     })
-
   })
 
   describe('requestDisclosure', () => {
@@ -154,11 +154,13 @@ describe('Connect', () => {
       const uport = new Connect('test app')
       const mnid = '2oeXufHGDpU51bfKBsZDdu7Je9weJ3r7sVG'
       const addressTest = '0x122bd1a75ae8c741f7e2ab0a28bd30b8dbb1a67e'
-      const verifyResponse = sinon.stub().callsFake((jwt) => Promise.resolve({'name': 'uPort Demo', '@type': 'App', 'description': 'Demo App', 'url': 'demo.uport.me', 'address': '0x122bd1a75ae8c741f7e2ab0a28bd30b8dbb1a67e'}))
+      const verifyResponse = sinon.stub().resolves({'name': 'uPort Demo', '@type': 'App', 'description': 'Demo App', 'url': 'demo.uport.me', 'address': '0x122bd1a75ae8c741f7e2ab0a28bd30b8dbb1a67e'})
       uport.verifyResponse = verifyResponse
-      uport.requestAddress = sinon.stub()
+      uport.requestDisclosure = sinon.stub()
       const web3 = new Web3(uport.getProvider())
       web3.eth.getCoinbase((error, address) => {
+        if (error) console.log(error)
+        console.log('HERE', address, addressTest)
         expect(address).to.equal(addressTest)
         done()
       })
@@ -465,20 +467,41 @@ describe('Connect', () => {
     })
   })
 
+  describe('connect state', () => {
+    it('Ensures agreement between mnid and address', () => {
+      const uport = new Connect('testApp')
 
-  describe('serialize', () => {
+      uport.did = '0x122bd1a75ae8c741f7e2ab0a28bd30b8dbb1a67e'
+      expect(uport.mnid).to.equal('2oeXufHGDpU51bfKBsZDdu7Je9weJ3r7sVG')
+
+      const uport2 = new Connect('testApp')
+      uport.mnid = '2oeXufHGDpU51bfKBsZDdu7Je9weJ3r7sVG'
+      expect(uport.did).to.equal('0x122bd1a75ae8c741f7e2ab0a28bd30b8dbb1a67e')
+    })
+
+
+    it('Saves to localStorage on assignment to state properties', () => {
+      const uport = new Connect('testApp')
+
+      uport.did = 'WOOPITY'
+
+      const uport2 = new Connect('testApp2')
+      expect(uport2.did).to.equal('WOOPITY')
+    })
+
     it('returns string representing all persistant state of connect obj', () => {
       const uport = new Connect('testapp')
-      uport.address = '0x00521965e7bd230323c423d96c657db5b79d099f'
+      uport.address = '0x122bd1a75ae8c741f7e2ab0a28bd30b8dbb1a67e'
       uport.mnid = '2oeXufHGDpU51bfKBsZDdu7Je9weJ3r7sVG'
       uport.doc = {name: 'Ran'}
       uport.did = 'did:uport:2oeXufHGDpU51bfKBsZDdu7Je9weJ3r7sVG'
       uport.keypair = {did: 'did:ethr:0x413daa771a2fc9c5ae5a66abd144881ef2498c54' , keypair: '1338f32fefb4db9b2deeb15d8b1b428a6346153cc43f51ace865986871dd069d'}
       uport.publicEncKey = 'test public key'
       uport.pushToken = 'test push token'
-      const uportStateString = uport.serialize()
+      const uportStateString = uport.getState()
+
       expect(uportStateString).to.be.a('string')
-      expect(/0x00521965e7bd230323c423d96c657db5b79d099f/.test(uportStateString)).to.be.true
+      expect(/0x122bd1a75ae8c741f7e2ab0a28bd30b8dbb1a67e/.test(uportStateString)).to.be.true
       expect(/2oeXufHGDpU51bfKBsZDdu7Je9weJ3r7sVG/.test(uportStateString)).to.be.true
       expect(/test public key/.test(uportStateString)).to.be.true
       expect(/test push token/.test(uportStateString)).to.be.true
@@ -486,10 +509,7 @@ describe('Connect', () => {
       expect(/did:ethr:0x413daa771a2fc9c5ae5a66abd144881ef2498c54/.test(uportStateString)).to.be.true
       expect(/1338f32fefb4db9b2deeb15d8b1b428a6346153cc43f51ace865986871dd069d/.test(uportStateString)).to.be.true
     })
-  })
 
-
-  describe('deserialize', () => {
     it('sets all persitant state of connect object given serialized string of state', () => {
       const uportTest = new Connect('testapp')
       uportTest.address = '0x00521965e7bd230323c423d96c657db5b79d099f'
@@ -501,7 +521,7 @@ describe('Connect', () => {
       uportTest.pushToken = 'test push token'
 
       const uport = new Connect('testapp')
-      uport.deserialize(uportTest.serialize())
+      uport.setState(uportTest.getState())
 
       expect(uport.address).to.equal(uportTest.address)
       expect(uport.mnid).to.equal(uportTest.mnid)
@@ -511,29 +531,24 @@ describe('Connect', () => {
       expect(uport.pushToken).to.equal(uportTest.pushToken)
       expect(uport.publicEncKey).to.equal(uportTest.publicEncKey)
     })
-  })
 
-  describe('getState', () => {
-    it('gets serialized state from local storage and calls deserialize with it', () => {
-      const uport = new Connect('testapp')
-      const deserialize = sinon.spy()
-      uport.deserialize = deserialize
-      // Set after connect instantiated
-      window.localStorage.setItem('connectState', 'uportTestStateString')
-      uport.getState()
-      expect(deserialize).to.be.calledWith('uportTestStateString')
-    })
-  })
+    // it('gets serialized state from local storage and calls deserialize with it', () => {
+    //   const uport = new Connect('testapp')
+    //   const deserialize = sinon.spy()
+    //   uport.deserialize = deserialize
+    //   // Set after connect instantiated
+    //   window.localStorage.setItem('connectState', 'uportTestStateString')
+    //   uport.getState()
+    //   expect(deserialize).to.be.calledWith('uportTestStateString')
+    // })
 
-
-  describe('setState', () => {
-    it('writes serialized state to local storage at connectState ', () => {
-        const uport = new Connect('testapp')
-        const serialize = sinon.stub().callsFake(() => 'uportTestStateString')
-        uport.serialize = serialize
-        uport.setState()
-        expect(serialize).to.be.called
-        expect(window.localStorage.getItem('connectState')).to.equal('"uportTestStateString"')
-    })
+    // it('writes serialized state to local storage at connectState ', () => {
+    //   const uport = new Connect('testapp')
+    //   const serialize = sinon.stub().callsFake(() => 'uportTestStateString')
+    //   uport.serialize = serialize
+    //   uport.setState()
+    //   expect(serialize).to.be.called
+    //   expect(window.localStorage.getItem('connectState')).to.equal('"uportTestStateString"')
+    // })
   })
 })
