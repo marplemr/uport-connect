@@ -61,7 +61,7 @@ class Connect {
 
     // Load any existing state if any
     if (this.storage) this.getState()
-    if (!this.keypair || !this.keypair.did) this.keypair = Credentials.createIdentity()
+    if (!this.keypair.did) this.keypair = Credentials.createIdentity()
     if (this.storage) this.setState()
 
     // Transports
@@ -152,9 +152,10 @@ class Connect {
         return this.verifyResponse(jwt).then(res => {
           // Set identifiers present in the response
           this.did = res.did
-          if (res.address) this.address = res.address
-          if (res.mnid) this.mnid = mnid
-          // Setup push transport if response contains pushtoken
+
+          if (res.mnid) this.mnid = res.mnid
+          else if (isMNID(res.address)) this.mnid = res.address
+
           if (res.boxPub) this.publicEncKey = res.boxPub
           if (res.pushToken) this.pushToken = res.pushToken
           return {id, res, data: payload.data}
@@ -361,6 +362,14 @@ class Connect {
       default:
         throw new Error(`Cannot update state with ${update}`)
     }
+    // Normalize address to mnid
+    const { mnid } = this._state
+    if (isMNID(mnid)) {
+      this._state.address = decode(mnid).address
+    } else if (mnid) {
+      // Don't allow setting an invalid mnid
+      throw new Error(`Invalid MNID: ${this._state.mnid}`)
+    }
 
     if (this.publicEncKey && this.pushToken) {
       this.pushTransport = pushTransport(this.pushToken, this.publicEncKey)
@@ -428,24 +437,18 @@ class Connect {
    */
   set did (did)                   { this.setState({did}) }
   set doc (doc)                   { this.setState({doc}) }
-  set mnid (mnid)                 { this.setState(this.mnidDecode(mnid)) }
-  set address (address)           { this.setState(this.mnidDecode(address)) }
+  set mnid (mnid)                 { this.setState({mnid}) } 
   set keypair (keypair)           { this.setState({keypair}) }
   set pushToken (pushToken)       { this.setState({pushToken}) }
   set publicEncKey (publicEncKey) { this.setState({publicEncKey}) }
-
-  /**
-   * Utility method for disambiguating an address or mnid; 
-   * Receives either and return an object containing both, encoded according to this.network.id
-   *
-   * @param   {String}  addressOrMnid   -- A string containing an address or an mnid
-   * @returns {Object}  addressAndMnid  -- an object with properties address, and mnid containing both
-   */
-  mnidDecode(addressOrMnid) {
-    if (!addressOrMnid) return {adddress: undefined, mnid: undefined}
-    const address = isMNID(addressOrMnid) ? decode(addressOrMnid).address : addressOrMnid
-    const mnid = isMNID(addressOrMnid) ? addressOrMnid : encode({network: this.network.id, address: addressOrMnid})
-    return {address, mnid}
+  // Address field alone is deprectated.  Allow setting an mnid, but not an unqualified address
+  set address (address) { 
+    if (isMNID(address)) {
+      this.setState({mnid: address})
+    } else {
+      if (address === this.address) return
+      throw new Error('Setting an Ethereum address without a network id is not supported.  Use an MNID instead.')
+    }
   }
 
   /**

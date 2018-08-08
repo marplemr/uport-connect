@@ -81,18 +81,15 @@ describe('Connect', () => {
       expect(uport.keypair.privateKey).to.equal(keypairPrivateKey)
     })
 
-    it('initializes with address/did from local storage if available', () => {
+    it('initializes with did from local storage if available', () => {
       // Set some storage
-      const uportSetStorage = new Connect('test app')
-      const address = "0x60fa1309b60125e97f2e8fd2ec576be1932ee51a"
-      const did = `did:ethr:${address}`
+      const uportSetStorage = new Connect('test app')      
+      const did = `did:ethr:woopity`
       // TODO update and test other vals
-      uportSetStorage.address = address
       uportSetStorage.did = did
 
       // Test if re-initialized with storage
       const uport = new Connect('testApp')
-      expect(uport.address).to.equal(address)
       expect(uport.did).to.equal(did)
     })
   })
@@ -160,7 +157,7 @@ describe('Connect', () => {
       // uport.requestDisclosure = sinon.stub()
       const web3 = new Web3(uport.getProvider())
       web3.eth.getCoinbase((error, address) => {
-        if (error) console.log(error.error)
+        if (error) console.log(error)
         expect(address).to.equal(addressTest)
         done()
       })
@@ -195,7 +192,8 @@ describe('Connect', () => {
 
     it('sets the address of provider when returned if already available', () => {
       const uport = new Connect('testApp')
-      uport.address = '0x00521965e7bd230323c423d96c657db5b79d099f'
+
+      uport.mnid = '2ocuXMaz4pJPtzkbqeaAeJUvGRdVGm2MJth'
       const provider = uport.getProvider()
       expect(provider.address).to.equal(uport.address)
     })
@@ -471,13 +469,17 @@ describe('Connect', () => {
   describe('connect state', () => {
     it('Ensures agreement between mnid and address', () => {
       const uport = new Connect('testApp')
-
-      uport.address = '0x122bd1a75ae8c741f7e2ab0a28bd30b8dbb1a67e'
-      expect(uport.mnid).to.equal('2oeXufHGDpU51bfKBsZDdu7Je9weJ3r7sVG')
-
-      const uport2 = new Connect('testApp')
       uport.mnid = '2oeXufHGDpU51bfKBsZDdu7Je9weJ3r7sVG'
       expect(uport.address).to.equal('0x122bd1a75ae8c741f7e2ab0a28bd30b8dbb1a67e')
+      const uport2 = new Connect('testApp')
+      uport.address = '2oeXufHGDpU51bfKBsZDdu7Je9weJ3r7sVG'
+      expect(uport.mnid).to.equal('2oeXufHGDpU51bfKBsZDdu7Je9weJ3r7sVG')
+      expect(uport.address).to.equal('0x122bd1a75ae8c741f7e2ab0a28bd30b8dbb1a67e')
+    })
+
+    it('Throws an error when setting address without an mnid', () => {
+      const uport = new Connect('testApp')
+      expect(() => uport.address = '0x122bd1a75ae8c741f7e2ab0a28bd30b8dbb1a67e').to.throw
     })
 
     it('Saves to localStorage on assignment to state properties', () => {
@@ -491,7 +493,7 @@ describe('Connect', () => {
 
     it('returns string representing all persistant state of connect obj', () => {
       const uport = new Connect('testapp')
-      uport.address = '0x122bd1a75ae8c741f7e2ab0a28bd30b8dbb1a67e'
+      // uport.address = '0x122bd1a75ae8c741f7e2ab0a28bd30b8dbb1a67e'
       uport.mnid = '2oeXufHGDpU51bfKBsZDdu7Je9weJ3r7sVG'
       uport.doc = {name: 'Ran'}
       uport.did = 'did:uport:2oeXufHGDpU51bfKBsZDdu7Je9weJ3r7sVG'
@@ -512,7 +514,7 @@ describe('Connect', () => {
 
     it('sets all persitant state of connect object given serialized string of state', () => {
       const uportTest = new Connect('testapp')
-      uportTest.address = '0x00521965e7bd230323c423d96c657db5b79d099f'
+      // uportTest.address = '0x00521965e7bd230323c423d96c657db5b79d099f'
       uportTest.mnid = '2oeXufHGDpU51bfKBsZDdu7Je9weJ3r7sVG'
       uportTest.doc = {name: 'Ran'}
       uportTest.did = 'did:uport:2oeXufHGDpU51bfKBsZDdu7Je9weJ3r7sVG'
@@ -533,7 +535,7 @@ describe('Connect', () => {
     })
 
     const testState = {
-      address: '0x00521965e7bd230323c423d96c657db5b79d099f',
+      address: '0x122bd1a75ae8c741f7e2ab0a28bd30b8dbb1a67e',
       mnid: '2oeXufHGDpU51bfKBsZDdu7Je9weJ3r7sVG',
       doc: {name: 'Ran'},
       did: 'did:uport:2oeXufHGDpU51bfKBsZDdu7Je9weJ3r7sVG',
